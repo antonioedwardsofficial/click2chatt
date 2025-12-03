@@ -1,46 +1,48 @@
 // app.js
-// Handles sending user messages to the Gemini backend
+// Front-end script to send user messages to /api/gemini and display responses
 
-const chatBox = document.getElementById("chat");
-const inputField = document.getElementById("input");
-const sendBtn = document.getElementById("send");
+document.addEventListener("DOMContentLoaded", () => {
+  const chatWindow = document.getElementById("chat-window");
+  const messageForm = document.getElementById("message-form");
+  const messageInput = document.getElementById("message-input");
 
-sendBtn.onclick = () => sendMessage();
-
-inputField.addEventListener("keypress", function (e) {
-  if (e.key === "Enter") sendMessage();
-});
-
-function appendMessage(sender, text) {
-  const div = document.createElement("div");
-  div.className = sender;
-  div.innerText = text;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-async function sendMessage() {
-  const text = inputField.value.trim();
-  if (!text) return;
-
-  appendMessage("user", text);
-  inputField.value = "";
-
-  appendMessage("bot", "Typing...");
-
-  try {
-    const res = await fetch("/api/gemini", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    });
-
-    const data = await res.json();
-
-    document.querySelector(".bot:last-child").innerText =
-      data.reply || "No response.";
-  } catch (error) {
-    document.querySelector(".bot:last-child").innerText =
-      "Error connecting to Gemini.";
+  // Append messages to chat window
+  function appendMessage(text, sender = "user") {
+    const bubble = document.createElement("div");
+    bubble.className = sender === "user" ? "bubble user-bubble" : "bubble ai-bubble";
+    bubble.innerText = text;
+    chatWindow.appendChild(bubble);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
   }
-}
+
+  // Handle form submit
+  messageForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = messageInput.value.trim();
+    if (!input) return;
+
+    // Show user's message
+    appendMessage(input, "user");
+    messageInput.value = "";
+
+    // Call backend
+    try {
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      });
+
+      if (!res.ok) {
+        appendMessage("⚠️ The AI is having trouble responding. Try again shortly.", "ai");
+        return;
+      }
+
+      const data = await res.json();
+      appendMessage(data.reply, "ai");
+    } catch (err) {
+      console.error("Client error:", err);
+      appendMessage("❌ Network issue. Please try again.", "ai");
+    }
+  });
+});
